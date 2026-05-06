@@ -12,6 +12,66 @@ function getClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 }
 
+function parseJsonObject<T>(text: string): T {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const candidate = fenced || trimmed;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  return JSON.parse(start >= 0 && end >= start ? candidate.slice(start, end + 1) : candidate) as T;
+}
+
+function boundedScore(value: unknown, fallback: number) {
+  const score = Number(value);
+  return Number.isFinite(score) ? Math.max(0, Math.min(100, score)) : fallback;
+}
+
+export async function aiEvaluateMatch(
+  match: MatchRecord,
+  property: PropertyRecord,
+  client: ClientRecord,
+): Promise<MatchRecord> {
+  const openai = getClient();
+  if (!openai) return match;
+
+  try {
+    const response = await openai.responses.create({
+      model: getModelName(),
+      instructions:
+        "You are an expert real-estate matching agent. Use the deterministic rule result as guardrails, then judge the nuanced fit from notes, intent, tradeoffs, objections, and whether this is worth showing. Return compact JSON only with keys score, passed, reasons, warnings, fitSummary, objections, suggestedNextAction. Score must be 0-100. Do not approve extreme budget mismatches unless the property is explicitly positioned as negotiable or strategically worth showing.",
+      input: JSON.stringify({ property, client, deterministicMatch: match }),
+    });
+    const parsed = parseJsonObject<{
+      score?: number;
+      passed?: boolean;
+      reasons?: string[];
+      warnings?: string[];
+      fitSummary?: string;
+      objections?: string[];
+      suggestedNextAction?: string;
+    }>(response.output_text);
+
+    const score = boundedScore(parsed.score, match.score);
+    const passed = typeof parsed.passed === "boolean" ? parsed.passed : score >= 62;
+
+    return {
+      ...match,
+      score,
+      ruleResult: {
+        passed,
+        reasons: parsed.reasons?.length ? parsed.reasons : match.ruleResult.reasons,
+        warnings: parsed.warnings?.length ? parsed.warnings : match.ruleResult.warnings,
+      },
+      fitSummary: parsed.fitSummary || match.fitSummary,
+      objections: parsed.objections?.length ? parsed.objections : match.objections,
+      suggestedNextAction: parsed.suggestedNextAction || match.suggestedNextAction,
+      status: passed ? "new" : "reviewed",
+    };
+  } catch {
+    return match;
+  }
+}
+
 export async function enrichMatchWithAi(
   match: MatchRecord,
   property: PropertyRecord,
@@ -33,11 +93,11 @@ export async function enrichMatchWithAi(
         "You are a precise real-estate matching analyst. Return compact JSON only with keys fitSummary, objections, suggestedNextAction.",
       input: JSON.stringify({ property, client, deterministicMatch: match }),
     });
-    const parsed = JSON.parse(response.output_text) as {
+    const parsed = parseJsonObject<{
       fitSummary?: string;
       objections?: string[];
       suggestedNextAction?: string;
-    };
+    }>(response.output_text);
     return {
       fitSummary: parsed.fitSummary || match.fitSummary,
       objections: parsed.objections?.length ? parsed.objections : match.objections,

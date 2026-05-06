@@ -18,12 +18,13 @@ Execution path:
 1. `runMatchesAction` calls `runMatchWorkflow`.
 2. `property-normalizer` records selected property facts.
 3. `client-normalizer` records selected client facts.
-4. `rule-matcher` builds scored matches through `buildMatch`.
-5. Passing matches are enriched by `fit-analyst` through OpenAI when available.
-6. `objection-finder` records warnings and objections.
-7. `draft-writer` records that drafts are generated separately on demand.
-8. `approval-gate` records that outbound actions remain blocked.
-9. `run-reporter` persists a summary and trace.
+4. `rule-matcher` builds a deterministic baseline through `buildMatch`.
+5. If `OPENAI_API_KEY` is available, `aiEvaluateMatch` reviews each pair and can adjust score, pass/fail, reasons, objections, summary, and next action.
+6. `fit-analyst` displays the AI-assisted or deterministic explanation.
+7. `objection-finder` records warnings and objections.
+8. `draft-writer` records that drafts are generated separately on demand.
+9. `approval-gate` records that outbound actions remain blocked.
+10. `run-reporter` persists a summary and trace.
 
 The workflow returns:
 

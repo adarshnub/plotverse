@@ -14,8 +14,8 @@ Plotverse is a personal Next.js automation studio for matching real-estate prope
 
 1. Properties and clients are created manually or imported by CSV.
 2. `runMatchWorkflow` selects records and creates an `agent_run`.
-3. Deterministic matching in `lib/matching.ts` scores each property-client pair.
-4. Passing matches are optionally enriched through OpenAI in `lib/openai.ts`.
+3. Deterministic matching in `lib/matching.ts` creates a grounded baseline for each property-client pair.
+4. When `OPENAI_API_KEY` is available, `aiEvaluateMatch` in `lib/openai.ts` performs AI-assisted matching and can refine score, pass/fail, explanation, objections, and next action.
 5. Matches, run steps, and audit output are persisted.
 6. Drafts are generated only when requested from a match.
 7. Approval remains manual: drafts can be edited, copied, approved, or rejected, but v1 does not send messages.

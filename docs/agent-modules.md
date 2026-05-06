@@ -21,16 +21,19 @@ The real-estate mode is represented as a multi-agent workflow. The canonical mod
 ### Rule Matcher
 
 - Key: `rule-matcher`
-- Model use: none.
-- Purpose: applies deterministic constraints and scoring.
+- Model use: AI-assisted when `OPENAI_API_KEY` is available.
+- Purpose: applies deterministic constraints first, then asks the model to judge nuanced fit.
 - Logic source: `lib/matching.ts`.
 - Checks include budget, area, property type, bedrooms, size, must-haves, and deal blockers.
+- AI function: `aiEvaluateMatch` in `lib/openai.ts`.
+- AI can adjust score, pass/fail, reasons, warnings, summary, objections, and next action.
+- Fallback: deterministic rule score if `OPENAI_API_KEY` is missing or the model call fails.
 
 ### Fit Analyst
 
 - Key: `fit-analyst`
-- Model use: OpenAI only for rule-passing matches.
-- Function: `enrichMatchWithAi` in `lib/openai.ts`.
+- Model use: shares the AI-assisted evaluation produced during rule matching.
+- Function: `aiEvaluateMatch` in `lib/openai.ts`.
 - Model selection: `OPENAI_MODEL`, defaulting to `gpt-5`.
 - Fallback: deterministic fit summary if `OPENAI_API_KEY` is missing or the call fails.
 
@@ -72,8 +75,14 @@ All OpenAI-enabled modules share one configurable model:
 OPENAI_MODEL=gpt-5
 ```
 
+Currently AI-backed modules are:
+
+- Rule Matcher / AI Match Evaluator
+- Fit Analyst
+- Outreach Draft Writer
+
 If `OPENAI_API_KEY` is missing, runs are marked with `local-rules-fallback` and no model call is made.
 
 ## Future Extension Point
 
-To give each module its own model, add a model field to `AgentModule`, store it in `agent_modules`, and pass the selected module model into `enrichMatchWithAi` or `draftOutreach`.
+To give each module its own model, add a model field to `AgentModule`, store it in `agent_modules`, and pass the selected module model into `aiEvaluateMatch` or `draftOutreach`.

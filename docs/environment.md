@@ -48,6 +48,7 @@ gpt-5
 
 Currently used by:
 
+- Rule Matcher / AI Match Evaluator
 - Fit Analyst
 - Outreach Draft Writer
 

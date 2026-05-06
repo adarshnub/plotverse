@@ -1,5 +1,5 @@
 import type { AgentRun, AgentRunStep, ClientRecord, MatchRecord, PlotverseData, PropertyRecord } from "@/lib/types";
-import { enrichMatchWithAi, getModelName } from "@/lib/openai";
+import { aiEvaluateMatch, getModelName } from "@/lib/openai";
 import { buildMatch, rankMatches } from "@/lib/matching";
 import { slugId, todayIso } from "@/lib/utils";
 
@@ -65,15 +65,8 @@ export async function runMatchWorkflow(
   for (const property of selectedProperties) {
     for (const client of selectedClients) {
       const baseMatch = buildMatch(property, client);
-      const ai = baseMatch.ruleResult.passed
-        ? await enrichMatchWithAi(baseMatch, property, client)
-        : {
-            fitSummary: baseMatch.fitSummary,
-            objections: baseMatch.objections,
-            suggestedNextAction: baseMatch.suggestedNextAction,
-          };
-
-      producedMatches.push({ ...baseMatch, ...ai });
+      const evaluatedMatch = await aiEvaluateMatch(baseMatch, property, client);
+      producedMatches.push(evaluatedMatch);
     }
   }
 
@@ -83,7 +76,11 @@ export async function runMatchWorkflow(
       runId,
       "rule-matcher",
       { pairs: selectedProperties.length * selectedClients.length },
-      { produced: ranked.length, passed: ranked.filter((match) => match.ruleResult.passed).length },
+      {
+        produced: ranked.length,
+        passed: ranked.filter((match) => match.ruleResult.passed).length,
+        mode: process.env.OPENAI_API_KEY ? "ai-assisted" : "deterministic-fallback",
+      },
     ),
   );
   steps.push(
