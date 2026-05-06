@@ -20,3 +20,12 @@ SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5
 ```
+
+## Docs
+
+- [Architecture](docs/architecture.md)
+- [Agent modules](docs/agent-modules.md)
+- [Data model](docs/data-model.md)
+- [Workflows](docs/workflows.md)
+- [Environment](docs/environment.md)
+- [Testing](docs/testing.md)
