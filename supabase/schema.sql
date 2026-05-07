@@ -16,9 +16,18 @@ create table if not exists properties (
   amenities text[] default '{}',
   notes text default '',
   source text default 'manual',
+  land_details jsonb default '{}',
+  source_url text,
+  source_site text,
+  scraped_at timestamptz,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table properties add column if not exists land_details jsonb default '{}';
+alter table properties add column if not exists source_url text;
+alter table properties add column if not exists source_site text;
+alter table properties add column if not exists scraped_at timestamptz;
 
 create table if not exists clients (
   id text primary key,
@@ -120,6 +129,83 @@ create table if not exists csv_imports (
   created_at timestamptz default now()
 );
 
+create table if not exists scrape_sources (
+  id text primary key,
+  key text unique not null,
+  name text not null,
+  kind text default 'property',
+  base_url text default '',
+  search_url text default '',
+  enabled boolean default true,
+  notes text default '',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists scrape_runs (
+  id text primary key,
+  scope text default '',
+  status text default 'queued',
+  source_ids text[] default '{}',
+  items_found numeric default 0,
+  items_imported numeric default 0,
+  errors text[] default '{}',
+  started_at timestamptz default now(),
+  completed_at timestamptz
+);
+
+create table if not exists scrape_items (
+  id text primary key,
+  run_id text references scrape_runs(id) on delete cascade,
+  source_id text references scrape_sources(id) on delete set null,
+  kind text default 'plot',
+  status text default 'review',
+  title text default '',
+  locality text default '',
+  district text default 'Kottayam',
+  price numeric default 0,
+  plot_area numeric default 0,
+  area_unit text default 'unknown',
+  plot_area_sqft numeric default 0,
+  price_per_cent numeric default 0,
+  source_url text default '',
+  source_site text default '',
+  raw_text text default '',
+  contact_name text default '',
+  visible_contact text default '',
+  lead_type text default 'unknown',
+  requirement_text text default '',
+  preferred_areas text[] default '{}',
+  budget_min numeric default 0,
+  budget_max numeric default 0,
+  purpose text default '',
+  confidence numeric default 0,
+  duplicate_of text,
+  normalized jsonb default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists token_usage_events (
+  id text primary key,
+  action_type text not null,
+  action_label text default '',
+  model text not null,
+  input_tokens numeric default 0,
+  cached_input_tokens numeric default 0,
+  output_tokens numeric default 0,
+  reasoning_tokens numeric default 0,
+  total_tokens numeric default 0,
+  input_cost_usd numeric default 0,
+  output_cost_usd numeric default 0,
+  total_cost_usd numeric default 0,
+  pricing_source text default '',
+  related_run_id text,
+  related_entity_id text,
+  metadata jsonb default '{}',
+  created_at timestamptz default now()
+);
+
 alter table properties enable row level security;
 alter table clients enable row level security;
 alter table matches enable row level security;
@@ -129,3 +215,7 @@ alter table agent_edges enable row level security;
 alter table agent_runs enable row level security;
 alter table agent_run_steps enable row level security;
 alter table csv_imports enable row level security;
+alter table scrape_sources enable row level security;
+alter table scrape_runs enable row level security;
+alter table scrape_items enable row level security;
+alter table token_usage_events enable row level security;

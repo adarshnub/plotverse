@@ -7,6 +7,7 @@ Plotverse is a personal Next.js automation studio for matching real-estate prope
 - `app/` contains App Router pages and server actions.
 - `components/` contains reusable UI and client-side interactive pieces.
 - `lib/` contains domain logic, persistence, agent workflow execution, OpenAI integration, CSV parsing, and shared types.
+- `lib/scrapers/` contains Kottayam source adapters and parsing helpers.
 - `supabase/schema.sql` contains the cloud persistence schema.
 - `tests/` contains focused unit tests for core non-UI behavior.
 
@@ -16,9 +17,10 @@ Plotverse is a personal Next.js automation studio for matching real-estate prope
 2. `runMatchWorkflow` selects records and creates an `agent_run`.
 3. Deterministic matching in `lib/matching.ts` creates a grounded baseline for each property-client pair.
 4. When `OPENAI_API_KEY` is available, `aiEvaluateMatch` in `lib/openai.ts` performs AI-assisted matching and can refine score, pass/fail, explanation, objections, and next action.
-5. Matches, run steps, and audit output are persisted.
-6. Drafts are generated only when requested from a match.
-7. Approval remains manual: drafts can be edited, copied, approved, or rejected, but v1 does not send messages.
+5. Kottayam scraping runs create review-only scrape items before import.
+6. Matches, run steps, and audit output are persisted.
+7. Drafts are generated only when requested from a match.
+8. Approval remains manual: scraped records and drafts both require review.
 
 ## Persistence Strategy
 

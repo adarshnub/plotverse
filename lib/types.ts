@@ -2,6 +2,10 @@ export type PropertyStatus = "new" | "active" | "reserved" | "closed";
 export type MatchStatus = "new" | "reviewed" | "drafted" | "archived";
 export type DraftStatus = "pending" | "approved" | "rejected";
 export type AgentRunStatus = "queued" | "running" | "completed" | "failed";
+export type ScrapeSourceKind = "property" | "lead" | "reference";
+export type ScrapeRunStatus = "queued" | "running" | "completed" | "failed" | "partial";
+export type ScrapeItemStatus = "review" | "approved" | "rejected" | "imported" | "duplicate";
+export type TokenUsageActionType = "match-evaluation" | "draft-generation" | "scrape-normalization";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -20,8 +24,28 @@ export interface PropertyRecord {
   amenities: string[];
   notes: string;
   source: string;
+  landDetails?: LandDetails;
+  sourceUrl?: string;
+  sourceSite?: string;
+  scrapedAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LandDetails {
+  plotArea: number;
+  areaUnit: "cent" | "acre" | "sqft" | "sqm" | "unknown";
+  plotAreaSqft: number;
+  pricePerCent: number;
+  pricePerSqft: number;
+  roadFrontage: string;
+  roadWidth: string;
+  zoningUse: string;
+  ownership: string;
+  boundaryWall: boolean | null;
+  waterAvailability: boolean | null;
+  electricityAvailability: boolean | null;
+  surveyNotes: string;
 }
 
 export interface ClientRecord {
@@ -128,6 +152,83 @@ export interface CsvImport {
   createdAt: string;
 }
 
+export interface ScrapeSource {
+  id: string;
+  key: string;
+  name: string;
+  kind: ScrapeSourceKind;
+  baseUrl: string;
+  searchUrl: string;
+  enabled: boolean;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScrapeRun {
+  id: string;
+  scope: string;
+  status: ScrapeRunStatus;
+  sourceIds: string[];
+  itemsFound: number;
+  itemsImported: number;
+  errors: string[];
+  startedAt: string;
+  completedAt?: string;
+}
+
+export interface ScrapeItem {
+  id: string;
+  runId: string;
+  sourceId: string;
+  kind: "plot" | "lead" | "reference";
+  status: ScrapeItemStatus;
+  title: string;
+  locality: string;
+  district: string;
+  price: number;
+  plotArea: number;
+  areaUnit: LandDetails["areaUnit"];
+  plotAreaSqft: number;
+  pricePerCent: number;
+  sourceUrl: string;
+  sourceSite: string;
+  rawText: string;
+  contactName: string;
+  visibleContact: string;
+  leadType: "buyer" | "broker" | "seller" | "unknown";
+  requirementText: string;
+  preferredAreas: string[];
+  budgetMin: number;
+  budgetMax: number;
+  purpose: string;
+  confidence: number;
+  duplicateOf?: string;
+  normalized: JsonRecord;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TokenUsageEvent {
+  id: string;
+  actionType: TokenUsageActionType;
+  actionLabel: string;
+  model: string;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  totalTokens: number;
+  inputCostUsd: number;
+  outputCostUsd: number;
+  totalCostUsd: number;
+  pricingSource: string;
+  relatedRunId?: string;
+  relatedEntityId?: string;
+  metadata: JsonRecord;
+  createdAt: string;
+}
+
 export interface PlotverseData {
   properties: PropertyRecord[];
   clients: ClientRecord[];
@@ -138,4 +239,8 @@ export interface PlotverseData {
   agentRuns: AgentRun[];
   agentRunSteps: AgentRunStep[];
   csvImports: CsvImport[];
+  scrapeSources: ScrapeSource[];
+  scrapeRuns: ScrapeRun[];
+  scrapeItems: ScrapeItem[];
+  tokenUsageEvents: TokenUsageEvent[];
 }

@@ -4,6 +4,46 @@ The real-estate mode is represented as a multi-agent workflow. The canonical mod
 
 ## Module List
 
+### Source Scout
+
+- Key: `source-scout`
+- Model use: none currently.
+- Purpose: chooses enabled Kottayam source URLs and run parameters.
+- Current output: source run plan for the scraper adapters.
+
+### Scraper Adapters
+
+- Key: `scraper-adapters`
+- Model use: none.
+- Purpose: runs source-specific Playwright adapters and returns raw public cards.
+- Fallback: records per-source failure and lets the rest of the run continue.
+
+### Plot Normalizer
+
+- Key: `plot-normalizer`
+- Model use: AI-assisted when `OPENAI_API_KEY` is available.
+- Purpose: extracts land-specific facts from raw listing text.
+- Fallback: local parser for price, locality, area, unit, sqft, and price per cent.
+
+### Lead Normalizer
+
+- Key: `lead-normalizer`
+- Model use: AI-assisted when `OPENAI_API_KEY` is available.
+- Purpose: extracts buyer/broker demand from public demand text.
+- Contact policy: visible public contact only; no hidden or paid contact extraction.
+
+### Duplicate Resolver
+
+- Key: `duplicate-resolver`
+- Model use: none.
+- Purpose: flags duplicate source URLs or similar imported plot records.
+
+### Review Gate
+
+- Key: `review-gate`
+- Model use: none.
+- Purpose: requires approval before scraped records become properties or clients.
+
 ### Property Normalizer
 
 - Key: `property-normalizer`

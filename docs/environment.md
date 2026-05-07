@@ -51,6 +51,35 @@ Currently used by:
 - Rule Matcher / AI Match Evaluator
 - Fit Analyst
 - Outreach Draft Writer
+- Kottayam Plot/Lead Normalizer during ingestion
+
+## Cost Tracking
+
+Token usage is stored in `token_usage_events` for OpenAI-backed actions.
+
+Built-in estimated pricing currently covers:
+
+- `gpt-4.1-mini`: $0.40 / 1M input tokens, $0.10 / 1M cached input tokens, $1.60 / 1M output tokens.
+
+For another model, set:
+
+```bash
+OPENAI_INPUT_COST_PER_1M_USD=
+OPENAI_CACHED_INPUT_COST_PER_1M_USD=
+OPENAI_OUTPUT_COST_PER_1M_USD=
+```
+
+Costs are estimates based on API token usage and configured rates.
+
+## Scraping Runtime
+
+Playwright is installed as a dev dependency for source adapters. If local browser binaries are missing, run:
+
+```bash
+npx playwright install chromium
+```
+
+Adapters also record source-level failures, so one blocked portal should not break the entire Kottayam ingestion run.
 
 ## Local-Only Mode
 

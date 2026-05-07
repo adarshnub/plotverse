@@ -18,7 +18,7 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5
+OPENAI_MODEL=gpt-4.1-mini
 ```
 
 ## Docs
@@ -29,3 +29,4 @@ OPENAI_MODEL=gpt-5
 - [Workflows](docs/workflows.md)
 - [Environment](docs/environment.md)
 - [Testing](docs/testing.md)
+- [Kottayam ingestion](docs/kottayam-ingestion.md)

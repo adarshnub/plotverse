@@ -15,6 +15,10 @@ import type {
   MatchRecord,
   PlotverseData,
   PropertyRecord,
+  ScrapeItem,
+  ScrapeRun,
+  ScrapeSource,
+  TokenUsageEvent,
 } from "@/lib/types";
 
 export async function getData(): Promise<PlotverseData> {
@@ -31,6 +35,10 @@ export async function getData(): Promise<PlotverseData> {
         agentRuns,
         agentRunSteps,
         csvImports,
+        scrapeSources,
+        scrapeRuns,
+        scrapeItems,
+        tokenUsageEvents,
       ] = await Promise.all([
         supabase.from("properties").select("*"),
         supabase.from("clients").select("*"),
@@ -41,9 +49,27 @@ export async function getData(): Promise<PlotverseData> {
         supabase.from("agent_runs").select("*"),
         supabase.from("agent_run_steps").select("*"),
         supabase.from("csv_imports").select("*"),
+        supabase.from("scrape_sources").select("*"),
+        supabase.from("scrape_runs").select("*"),
+        supabase.from("scrape_items").select("*"),
+        supabase.from("token_usage_events").select("*"),
       ]);
 
-      const responses = [properties, clients, matches, draftMessages, agentModules, agentEdges, agentRuns, agentRunSteps, csvImports];
+      const responses = [
+        properties,
+        clients,
+        matches,
+        draftMessages,
+        agentModules,
+        agentEdges,
+        agentRuns,
+        agentRunSteps,
+        csvImports,
+        scrapeSources,
+        scrapeRuns,
+        scrapeItems,
+        tokenUsageEvents,
+      ];
       const firstError = responses.find((response) => response.error)?.error;
       if (firstError) throw firstError;
 
@@ -57,6 +83,10 @@ export async function getData(): Promise<PlotverseData> {
         agentRuns: (agentRuns.data ?? []).map(fromRunRow),
         agentRunSteps: (agentRunSteps.data ?? []).map(fromStepRow),
         csvImports: (csvImports.data ?? []).map(fromCsvImportRow),
+        scrapeSources: (scrapeSources.data ?? []).map(fromScrapeSourceRow).concat(scrapeSources.data?.length ? [] : seedData.scrapeSources),
+        scrapeRuns: (scrapeRuns.data ?? []).map(fromScrapeRunRow),
+        scrapeItems: (scrapeItems.data ?? []).map(fromScrapeItemRow),
+        tokenUsageEvents: (tokenUsageEvents.data ?? []).map(fromTokenUsageRow),
       };
     } catch {
       return readLocalData();
@@ -79,6 +109,10 @@ export async function setData(data: PlotverseData) {
       data.agentRuns.length ? supabase.from("agent_runs").upsert(data.agentRuns.map(toRunRow)) : Promise.resolve(),
       data.agentRunSteps.length ? supabase.from("agent_run_steps").upsert(data.agentRunSteps.map(toStepRow)) : Promise.resolve(),
       data.csvImports.length ? supabase.from("csv_imports").upsert(data.csvImports.map(toCsvImportRow)) : Promise.resolve(),
+      data.scrapeSources.length ? supabase.from("scrape_sources").upsert(data.scrapeSources.map(toScrapeSourceRow)) : Promise.resolve(),
+      data.scrapeRuns.length ? supabase.from("scrape_runs").upsert(data.scrapeRuns.map(toScrapeRunRow)) : Promise.resolve(),
+      data.scrapeItems.length ? supabase.from("scrape_items").upsert(data.scrapeItems.map(toScrapeItemRow)) : Promise.resolve(),
+      data.tokenUsageEvents.length ? supabase.from("token_usage_events").upsert(data.tokenUsageEvents.map(toTokenUsageRow)) : Promise.resolve(),
     ]);
     return;
   }
@@ -145,6 +179,10 @@ function fromPropertyRow(row: Row): PropertyRecord {
     amenities: textArray(row.amenities),
     notes: text(row.notes),
     source: text(row.source),
+    landDetails: json(row.land_details) as unknown as PropertyRecord["landDetails"],
+    sourceUrl: row.source_url ? text(row.source_url) : undefined,
+    sourceSite: row.source_site ? text(row.source_site) : undefined,
+    scrapedAt: row.scraped_at ? text(row.scraped_at) : undefined,
     createdAt: text(row.created_at),
     updatedAt: text(row.updated_at),
   };
@@ -166,6 +204,10 @@ function toPropertyRow(item: PropertyRecord) {
     amenities: item.amenities,
     notes: item.notes,
     source: item.source,
+    land_details: item.landDetails ?? {},
+    source_url: item.sourceUrl,
+    source_site: item.sourceSite,
+    scraped_at: item.scrapedAt,
     created_at: item.createdAt,
     updated_at: item.updatedAt,
   };
@@ -389,6 +431,176 @@ function toCsvImportRow(item: CsvImport) {
     rows_imported: item.rowsImported,
     validation_errors: item.validationErrors,
     status: item.status,
+    created_at: item.createdAt,
+  };
+}
+
+function fromScrapeSourceRow(row: Row): ScrapeSource {
+  return {
+    id: text(row.id),
+    key: text(row.key),
+    name: text(row.name),
+    kind: text(row.kind, "property") as ScrapeSource["kind"],
+    baseUrl: text(row.base_url),
+    searchUrl: text(row.search_url),
+    enabled: Boolean(row.enabled),
+    notes: text(row.notes),
+    createdAt: text(row.created_at),
+    updatedAt: text(row.updated_at),
+  };
+}
+
+function toScrapeSourceRow(item: ScrapeSource) {
+  return {
+    id: item.id,
+    key: item.key,
+    name: item.name,
+    kind: item.kind,
+    base_url: item.baseUrl,
+    search_url: item.searchUrl,
+    enabled: item.enabled,
+    notes: item.notes,
+    created_at: item.createdAt,
+    updated_at: item.updatedAt,
+  };
+}
+
+function fromScrapeRunRow(row: Row): ScrapeRun {
+  return {
+    id: text(row.id),
+    scope: text(row.scope),
+    status: text(row.status, "completed") as ScrapeRun["status"],
+    sourceIds: textArray(row.source_ids),
+    itemsFound: num(row.items_found),
+    itemsImported: num(row.items_imported),
+    errors: textArray(row.errors),
+    startedAt: text(row.started_at),
+    completedAt: row.completed_at ? text(row.completed_at) : undefined,
+  };
+}
+
+function toScrapeRunRow(item: ScrapeRun) {
+  return {
+    id: item.id,
+    scope: item.scope,
+    status: item.status,
+    source_ids: item.sourceIds,
+    items_found: item.itemsFound,
+    items_imported: item.itemsImported,
+    errors: item.errors,
+    started_at: item.startedAt,
+    completed_at: item.completedAt,
+  };
+}
+
+function fromScrapeItemRow(row: Row): ScrapeItem {
+  return {
+    id: text(row.id),
+    runId: text(row.run_id),
+    sourceId: text(row.source_id),
+    kind: text(row.kind, "plot") as ScrapeItem["kind"],
+    status: text(row.status, "review") as ScrapeItem["status"],
+    title: text(row.title),
+    locality: text(row.locality),
+    district: text(row.district),
+    price: num(row.price),
+    plotArea: num(row.plot_area),
+    areaUnit: text(row.area_unit, "unknown") as ScrapeItem["areaUnit"],
+    plotAreaSqft: num(row.plot_area_sqft),
+    pricePerCent: num(row.price_per_cent),
+    sourceUrl: text(row.source_url),
+    sourceSite: text(row.source_site),
+    rawText: text(row.raw_text),
+    contactName: text(row.contact_name),
+    visibleContact: text(row.visible_contact),
+    leadType: text(row.lead_type, "unknown") as ScrapeItem["leadType"],
+    requirementText: text(row.requirement_text),
+    preferredAreas: textArray(row.preferred_areas),
+    budgetMin: num(row.budget_min),
+    budgetMax: num(row.budget_max),
+    purpose: text(row.purpose),
+    confidence: num(row.confidence),
+    duplicateOf: row.duplicate_of ? text(row.duplicate_of) : undefined,
+    normalized: json(row.normalized),
+    createdAt: text(row.created_at),
+    updatedAt: text(row.updated_at),
+  };
+}
+
+function toScrapeItemRow(item: ScrapeItem) {
+  return {
+    id: item.id,
+    run_id: item.runId,
+    source_id: item.sourceId,
+    kind: item.kind,
+    status: item.status,
+    title: item.title,
+    locality: item.locality,
+    district: item.district,
+    price: item.price,
+    plot_area: item.plotArea,
+    area_unit: item.areaUnit,
+    plot_area_sqft: item.plotAreaSqft,
+    price_per_cent: item.pricePerCent,
+    source_url: item.sourceUrl,
+    source_site: item.sourceSite,
+    raw_text: item.rawText,
+    contact_name: item.contactName,
+    visible_contact: item.visibleContact,
+    lead_type: item.leadType,
+    requirement_text: item.requirementText,
+    preferred_areas: item.preferredAreas,
+    budget_min: item.budgetMin,
+    budget_max: item.budgetMax,
+    purpose: item.purpose,
+    confidence: item.confidence,
+    duplicate_of: item.duplicateOf,
+    normalized: item.normalized,
+    created_at: item.createdAt,
+    updated_at: item.updatedAt,
+  };
+}
+
+function fromTokenUsageRow(row: Row): TokenUsageEvent {
+  return {
+    id: text(row.id),
+    actionType: text(row.action_type, "match-evaluation") as TokenUsageEvent["actionType"],
+    actionLabel: text(row.action_label),
+    model: text(row.model),
+    inputTokens: num(row.input_tokens),
+    cachedInputTokens: num(row.cached_input_tokens),
+    outputTokens: num(row.output_tokens),
+    reasoningTokens: num(row.reasoning_tokens),
+    totalTokens: num(row.total_tokens),
+    inputCostUsd: num(row.input_cost_usd),
+    outputCostUsd: num(row.output_cost_usd),
+    totalCostUsd: num(row.total_cost_usd),
+    pricingSource: text(row.pricing_source),
+    relatedRunId: row.related_run_id ? text(row.related_run_id) : undefined,
+    relatedEntityId: row.related_entity_id ? text(row.related_entity_id) : undefined,
+    metadata: json(row.metadata),
+    createdAt: text(row.created_at),
+  };
+}
+
+function toTokenUsageRow(item: TokenUsageEvent) {
+  return {
+    id: item.id,
+    action_type: item.actionType,
+    action_label: item.actionLabel,
+    model: item.model,
+    input_tokens: item.inputTokens,
+    cached_input_tokens: item.cachedInputTokens,
+    output_tokens: item.outputTokens,
+    reasoning_tokens: item.reasoningTokens,
+    total_tokens: item.totalTokens,
+    input_cost_usd: item.inputCostUsd,
+    output_cost_usd: item.outputCostUsd,
+    total_cost_usd: item.totalCostUsd,
+    pricing_source: item.pricingSource,
+    related_run_id: item.relatedRunId,
+    related_entity_id: item.relatedEntityId,
+    metadata: item.metadata,
     created_at: item.createdAt,
   };
 }

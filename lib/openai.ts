@@ -1,7 +1,8 @@
 import "server-only";
 
 import OpenAI from "openai";
-import type { ClientRecord, MatchRecord, PropertyRecord } from "@/lib/types";
+import type { ClientRecord, MatchRecord, PropertyRecord, TokenUsageEvent } from "@/lib/types";
+import { createTokenUsageEvent } from "@/lib/token-usage";
 
 export function getModelName() {
   return process.env.OPENAI_MODEL || "gpt-5";
@@ -30,13 +31,15 @@ export async function aiEvaluateMatch(
   match: MatchRecord,
   property: PropertyRecord,
   client: ClientRecord,
-): Promise<MatchRecord> {
+  relatedRunId?: string,
+): Promise<{ match: MatchRecord; usageEvent?: TokenUsageEvent }> {
   const openai = getClient();
-  if (!openai) return match;
+  if (!openai) return { match };
 
   try {
+    const model = getModelName();
     const response = await openai.responses.create({
-      model: getModelName(),
+      model,
       instructions:
         "You are an expert real-estate matching agent. Use the deterministic rule result as guardrails, then judge the nuanced fit from notes, intent, tradeoffs, objections, and whether this is worth showing. Return compact JSON only with keys score, passed, reasons, warnings, fitSummary, objections, suggestedNextAction. Score must be 0-100. Do not approve extreme budget mismatches unless the property is explicitly positioned as negotiable or strategically worth showing.",
       input: JSON.stringify({ property, client, deterministicMatch: match }),
@@ -54,7 +57,7 @@ export async function aiEvaluateMatch(
     const score = boundedScore(parsed.score, match.score);
     const passed = typeof parsed.passed === "boolean" ? parsed.passed : score >= 62;
 
-    return {
+    const evaluatedMatch: MatchRecord = {
       ...match,
       score,
       ruleResult: {
@@ -67,8 +70,21 @@ export async function aiEvaluateMatch(
       suggestedNextAction: parsed.suggestedNextAction || match.suggestedNextAction,
       status: passed ? "new" : "reviewed",
     };
+    const usageEvent = createTokenUsageEvent({
+      actionType: "match-evaluation",
+      actionLabel: "AI-assisted property/client match evaluation",
+      model,
+      usage: response.usage,
+      relatedRunId,
+      relatedEntityId: match.id,
+      metadata: {
+        propertyId: property.id,
+        clientId: client.id,
+      },
+    });
+    return { match: evaluatedMatch, usageEvent: usageEvent ?? undefined };
   } catch {
-    return match;
+    return { match };
   }
 }
 
@@ -117,20 +133,33 @@ export async function draftOutreach(
   property: PropertyRecord,
   client: ClientRecord,
   channel: "whatsapp" | "email" | "call" = "whatsapp",
-) {
+): Promise<{ body: string; usageEvent?: TokenUsageEvent }> {
   const fallback = `Hi ${client.name.split(" ")[0]}, I found a ${property.bedrooms}BHK ${property.propertyType.toLowerCase()} in ${property.area} that looks aligned with your brief. ${match.fitSummary} Worth me sharing the details and checking viewing slots?`;
   const openai = getClient();
-  if (!openai) return fallback;
+  if (!openai) return { body: fallback };
 
   try {
+    const model = getModelName();
     const response = await openai.responses.create({
-      model: getModelName(),
+      model,
       instructions:
         "Draft real-estate outreach for human approval. Do not say it was sent. Keep it specific, concise, and natural.",
       input: JSON.stringify({ channel, property, client, match }),
     });
-    return response.output_text.trim() || fallback;
+    const usageEvent = createTokenUsageEvent({
+      actionType: "draft-generation",
+      actionLabel: "Outreach draft generation",
+      model,
+      usage: response.usage,
+      relatedEntityId: match.id,
+      metadata: {
+        propertyId: property.id,
+        clientId: client.id,
+        channel,
+      },
+    });
+    return { body: response.output_text.trim() || fallback, usageEvent: usageEvent ?? undefined };
   } catch {
-    return fallback;
+    return { body: fallback };
   }
 }

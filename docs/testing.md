@@ -40,6 +40,28 @@ Checks:
 
 - pending drafts can transition to approved while preserving edited copy
 
+### Kottayam Ingestion Tests
+
+Files: `tests/ingestion.test.ts`, `tests/scraper-adapters.test.ts`
+
+Checks:
+
+- Kerala land unit conversion
+- Indian price parsing
+- scraped plot normalization
+- duplicate detection
+- conversion of approved scrape items into properties or clients
+- listing-like HTML fixture parsing
+
+### Token Usage Tests
+
+File: `tests/token-usage.test.ts`
+
+Checks:
+
+- cost estimation for `gpt-4.1-mini`
+- usage aggregation across multiple model actions
+
 ## Manual Acceptance Checks
 
 After `npm run dev`, verify:
@@ -51,3 +73,4 @@ After `npm run dev`, verify:
 - `/drafts` can edit, copy, approve, and reject drafts.
 - `/runs` shows traces after matching or lab runs.
 - `/lab` shows draggable modules and can run a simulation.
+- `/ingestion` can run source adapters, show review items, and import/reject candidates.

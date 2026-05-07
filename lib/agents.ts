@@ -1,4 +1,4 @@
-import type { AgentRun, AgentRunStep, ClientRecord, MatchRecord, PlotverseData, PropertyRecord } from "@/lib/types";
+import type { AgentRun, AgentRunStep, ClientRecord, MatchRecord, PlotverseData, PropertyRecord, TokenUsageEvent } from "@/lib/types";
 import { aiEvaluateMatch, getModelName } from "@/lib/openai";
 import { buildMatch, rankMatches } from "@/lib/matching";
 import { slugId, todayIso } from "@/lib/utils";
@@ -44,6 +44,7 @@ export async function runMatchWorkflow(
 
   const steps: AgentRunStep[] = [];
   const producedMatches: MatchRecord[] = [];
+  const usageEvents: TokenUsageEvent[] = [];
 
   steps.push(
     createStep(
@@ -65,7 +66,9 @@ export async function runMatchWorkflow(
   for (const property of selectedProperties) {
     for (const client of selectedClients) {
       const baseMatch = buildMatch(property, client);
-      const evaluatedMatch = await aiEvaluateMatch(baseMatch, property, client);
+      const result = await aiEvaluateMatch(baseMatch, property, client, runId);
+      const evaluatedMatch = result.match;
+      if (result.usageEvent) usageEvents.push(result.usageEvent);
       producedMatches.push(evaluatedMatch);
     }
   }
@@ -120,9 +123,15 @@ export async function runMatchWorkflow(
   run.status = "completed";
   run.completedAt = completedAt;
   run.summary = `Created ${ranked.length} scored matches across ${selectedProperties.length} properties and ${selectedClients.length} clients.`;
+  run.tokenUsage = {
+    inputTokens: usageEvents.reduce((sum, event) => sum + event.inputTokens, 0),
+    outputTokens: usageEvents.reduce((sum, event) => sum + event.outputTokens, 0),
+    totalTokens: usageEvents.reduce((sum, event) => sum + event.totalTokens, 0),
+    totalCostUsd: usageEvents.reduce((sum, event) => sum + event.totalCostUsd, 0),
+  };
   steps.push(createStep(runId, "run-reporter", { runId }, { summary: run.summary }));
 
-  return { run, steps, matches: ranked };
+  return { run, steps, matches: ranked, usageEvents };
 }
 
 export function findMatchEntities(data: PlotverseData, match: MatchRecord) {

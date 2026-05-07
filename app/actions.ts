@@ -9,9 +9,11 @@ import { updateData } from "@/lib/store";
 import type { ClientRecord, DraftMessage, PropertyRecord } from "@/lib/types";
 import { slugId, splitList, toNumber, todayIso } from "@/lib/utils";
 import { transitionDraftStatus } from "@/lib/drafts";
+import { scrapeItemToClient, scrapeItemToProperty } from "@/lib/ingestion";
+import { runKottayamScrape } from "@/lib/scrapers/run";
 
 const revalidateApp = () => {
-  ["/", "/properties", "/clients", "/matches", "/drafts", "/runs", "/lab"].forEach((path) => revalidatePath(path));
+  ["/", "/properties", "/clients", "/matches", "/drafts", "/runs", "/lab", "/ingestion", "/usage"].forEach((path) => revalidatePath(path));
 };
 
 export async function createProperty(formData: FormData) {
@@ -126,6 +128,7 @@ export async function runMatchesAction(formData?: FormData) {
     ];
     data.agentRuns.unshift(result.run);
     data.agentRunSteps.unshift(...result.steps);
+    data.tokenUsageEvents.unshift(...result.usageEvents);
   });
 
   revalidateApp();
@@ -140,7 +143,8 @@ export async function generateDraft(matchId: string) {
     const client = data.clients.find((item) => item.id === match.clientId);
     if (!property || !client) return;
 
-    const body = await draftOutreach(match, property, client);
+    const draftResult = await draftOutreach(match, property, client);
+    const body = draftResult.body;
     const now = todayIso();
     const draft: DraftMessage = {
       id: slugId("draft"),
@@ -154,6 +158,16 @@ export async function generateDraft(matchId: string) {
       updatedAt: now,
     };
     data.draftMessages.unshift(draft);
+    if (draftResult.usageEvent) {
+      data.tokenUsageEvents.unshift({
+        ...draftResult.usageEvent,
+        relatedEntityId: draft.id,
+        metadata: {
+          ...draftResult.usageEvent.metadata,
+          matchId,
+        },
+      });
+    }
     match.status = "drafted";
     match.updatedAt = now;
   });
@@ -190,8 +204,57 @@ export async function runLabTest(formData: FormData) {
     const result = await runMatchWorkflow(data, propertyId ? [propertyId] : [], clientId ? [clientId] : [], "simulation");
     data.agentRuns.unshift(result.run);
     data.agentRunSteps.unshift(...result.steps);
+    data.tokenUsageEvents.unshift(...result.usageEvents);
   });
 
   revalidateApp();
   redirect("/lab");
+}
+
+export async function runKottayamScrapeAction(formData: FormData) {
+  const sourceIds = formData.getAll("sourceIds").map(String);
+
+  await updateData(async (data) => {
+    const result = await runKottayamScrape(data, sourceIds);
+    data.scrapeRuns.unshift(result.run);
+    data.scrapeItems.unshift(...result.items);
+    data.tokenUsageEvents.unshift(...result.usageEvents);
+  });
+
+  revalidateApp();
+  redirect("/ingestion");
+}
+
+export async function approveScrapeItem(itemId: string) {
+  await updateData((data) => {
+    const item = data.scrapeItems.find((candidate) => candidate.id === itemId);
+    if (!item || item.status === "imported") return;
+
+    if (item.kind === "plot") {
+      data.properties.unshift(scrapeItemToProperty(item));
+    } else if (item.kind === "lead") {
+      data.clients.unshift(scrapeItemToClient(item));
+    }
+
+    item.status = item.kind === "reference" ? "approved" : "imported";
+    item.updatedAt = todayIso();
+
+    const run = data.scrapeRuns.find((candidate) => candidate.id === item.runId);
+    if (run && item.kind !== "reference") {
+      run.itemsImported += 1;
+    }
+  });
+
+  revalidateApp();
+}
+
+export async function rejectScrapeItem(itemId: string) {
+  await updateData((data) => {
+    const item = data.scrapeItems.find((candidate) => candidate.id === itemId);
+    if (!item) return;
+    item.status = "rejected";
+    item.updatedAt = todayIso();
+  });
+
+  revalidateApp();
 }

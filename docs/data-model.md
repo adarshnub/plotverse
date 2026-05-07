@@ -119,3 +119,18 @@ Important fields:
 ## CSV Imports
 
 `csvImports` records import attempts, row counts, validation errors, and status.
+
+## Token Usage
+
+### `tokenUsageEvents`
+
+Stores OpenAI-backed action usage and estimated cost.
+
+Important fields:
+
+- `actionType`: match evaluation, draft generation, or scrape normalization.
+- `model`
+- `inputTokens`, `cachedInputTokens`, `outputTokens`, `reasoningTokens`, `totalTokens`
+- `inputCostUsd`, `outputCostUsd`, `totalCostUsd`
+- `relatedRunId`, `relatedEntityId`
+- `pricingSource`

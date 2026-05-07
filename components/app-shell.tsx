@@ -6,6 +6,8 @@ import {
   ClipboardCheck,
   GitBranch,
   Home,
+  Radar,
+  ReceiptText,
   MessageSquareText,
   Users,
 } from "lucide-react";
@@ -18,6 +20,8 @@ const navItems = [
   { href: "/matches", label: "Matches", icon: GitBranch },
   { href: "/drafts", label: "Approvals", icon: ClipboardCheck },
   { href: "/runs", label: "Runs", icon: Activity },
+  { href: "/ingestion", label: "Ingestion", icon: Radar },
+  { href: "/usage", label: "Usage", icon: ReceiptText },
   { href: "/lab", label: "Lab", icon: Beaker },
 ];
 

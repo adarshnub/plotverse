@@ -24,9 +24,18 @@ export async function readLocalData(): Promise<PlotverseData> {
   return {
     ...seedData,
     ...parsed,
-    agentModules: parsed.agentModules?.length ? parsed.agentModules : seedData.agentModules,
-    agentEdges: parsed.agentEdges?.length ? parsed.agentEdges : seedData.agentEdges,
+    agentModules: mergeById(parsed.agentModules ?? [], seedData.agentModules),
+    agentEdges: mergeById(parsed.agentEdges ?? [], seedData.agentEdges),
+    scrapeSources: mergeById(parsed.scrapeSources ?? [], seedData.scrapeSources),
+    scrapeRuns: parsed.scrapeRuns ?? [],
+    scrapeItems: parsed.scrapeItems ?? [],
+    tokenUsageEvents: parsed.tokenUsageEvents ?? [],
   };
+}
+
+function mergeById<T extends { id: string }>(current: T[], seeded: T[]) {
+  const ids = new Set(current.map((item) => item.id));
+  return [...current, ...seeded.filter((item) => !ids.has(item.id))];
 }
 
 export async function writeLocalData(data: PlotverseData) {
